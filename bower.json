@@ -1,0 +1,27 @@
+{
+  "name": "stocks",
+  "version": "(0.0.1)",
+  "homepage": "https://github.com/skhanahm/stocks",
+  "authors": [
+    "Saied K <saied.21@gmail.com>"
+  ],
+  "description": "Stock price and moving average application",
+  "main": "server.js",
+  "moduleType": [
+    "node"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "d3": "~3.5.6",
+    "express": "~4.13.3",
+    "jquery": "~2.1.4",
+    "http": "~3.24.10"
+  }
+}
