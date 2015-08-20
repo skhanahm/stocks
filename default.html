@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style type="text/css">
+        body {
+          font: 12px sans-serif;
+          margin: 0;
+          border: 0;
+          padding: 0;
+        }
+
+        #query {
+            background-color: #2f2f2f;
+            padding: 20px 40px;
+        }
+
+        #query input[type="text"] {
+            background-color: transparent;
+            border: 0;
+            border-bottom: solid 1px #5b5b5b;
+            margin: 0px 20px;
+            width: 30%;
+            max-width: 400px;
+            min-width: 200px;
+            color: #d0d0d0;
+            vertical-align: bottom;
+            font-size: 30px;
+        }
+
+        #query button {
+            background-color: transparent;
+            color: #d0d0d0;
+            border: solid 1px #d0d0d0;
+            cursor: pointer;
+            padding: 10px 30px;
+        }
+
+        .axis path,
+        .axis line {
+          fill: none;
+          stroke: #000;
+          shape-rendering: crispEdges;
+        }
+
+        .line {
+          fill: none;
+          stroke: steelblue;
+          stroke-width: 1.5px;
+        }
+
+        .fiftyMovingAverage {
+            fill: none;
+            stroke: green;
+            stroke-width: 1.5px;
+        }
+
+        .twoHundredMovingAverage {
+            fill: none;
+            stroke: red;
+            stroke-width: 1.5px;
+        }
+
+        .area {
+            fill: lightsteelblue;
+            stroke-width: 0;
+        }
+
+        .overlay {
+            fill: none;
+            pointer-events: all;
+        }
+
+        .focusClose circle {
+            fill: none;
+            stroke: steelblue;
+            stroke-width: 2px;
+        }
+
+        .focusFifty circle {
+            fill: none;
+            stroke: green;
+            stroke-width: 2px;
+        }
+
+        .focusTwoHundred circle {
+            fill: none;
+            stroke: red;
+            stroke-width: 2px;
+        }
+
+        .focusClose rect {
+            fill: none;
+            stroke: steelblue;
+            stroke-width: 2px;
+            text-anchor: middle;
+        }
+
+        .focusFifty rect {
+            fill: none;
+            stroke: green;
+            stroke-width: 2px;
+            text-anchor: middle;
+        }
+
+        .focusTwoHundred rect {
+            fill: none;
+            stroke: red;
+            stroke-width: 2px;
+            text-anchor: middle;
+        }
+    </style>
+</head>
+<body>
+    <div id="query">
+        <input type="text" id="stockSymbol" />
+        <button id="getdata">Collect Stock Data</button>
+    </div>
+    <div id="graphPlaceholder">
+        <div id="inner"></div>
+    </div>
+    <script src="/bower_components/jquery/dist/jquery.js"></script>
+    <script src="/bower_components/d3/d3.min.js"></script>
+    <script type="text/javascript">
+        function updateData(headers, data) {
+            var innerWidth = $("#graphPlaceholder").width();
+            var margin = { top: 30, right: $("#graphPlaceholder").width() * 0.1, bottom: 30, left: $("#graphPlaceholder").width() * 0.1 };
+            var width = innerWidth - margin.left - margin.right;
+            var height = (innerWidth * 2/5) - margin.top - margin.bottom;
+
+            var parseDate = d3.time.format("%d-%b-%y").parse;
+            var bisectDate = d3.bisector(function (d) { return d.date; }).left;
+            var formatCurrency = function (d) { return "$" + d3.format(",.2f")(d); };
+
+            var x = d3.time.scale()
+                .range([0, width]);
+
+            var y = d3.scale.linear()
+                .range([height, 0]);
+
+            var xAxis = d3.svg.axis()
+                .scale(x)
+                .orient("bottom");
+
+            var yAxis = d3.svg.axis()
+                .scale(y)
+                .orient("left");
+
+            var line = d3.svg.line()
+                .x(function (d) { return x(d.date); })
+                .y(function (d) { return y(d.adjClose); });
+
+            var lineFifty = d3.svg.line()
+                .x(function (d) { return x(d.date); })
+                .y(function (d) { return y(d.fifty); });
+
+            var lineTwoHundred = d3.svg.line()
+                .x(function (d) { return x(d.date); })
+                .y(function (d) { return y(d.twoHundred); });
+
+            var area = d3.svg.area()
+                .x(function (d) { return x(d.date); })
+                .y0(height)
+                .y1(function (d) { return y(d.adjClose); });
+
+            var svg = d3.select("#graphPlaceholder").append("svg")
+                .attr("id", "stockGraph")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+            // Change range so that the graph is padded in the chart
+            var closeRangeObj = d3.extent(data, function (d) { return d.adjClose; });
+            var closeRange = Math.abs(closeRangeObj[0] - closeRangeObj[1]);
+            closeRangeObj[0] = closeRangeObj[0] * 0.9;
+            closeRangeObj[1] = closeRangeObj[1] * 1.1;
+
+            x.domain([data[0].date, data[data.length - 1].date]);
+            y.domain(closeRangeObj);
+
+            svg.append("path")
+                .datum(data)
+                .attr("class", "area")
+                .attr("d", area);
+
+            svg.append("g")
+                .attr("class", "x axis")
+                .attr("transform", "translate(0," + height + ")")
+                .call(xAxis);
+
+            svg.append("g")
+                .attr("class", "y axis")
+                .call(yAxis)
+              .append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("y", 6)
+                .attr("dy", ".71em")
+                .style("text-anchor", "end")
+                .text("Price ($)");
+
+            svg.append("path")
+                .datum(data)
+                .attr("class", "line")
+                .attr("d", line);
+
+            svg.append("path")
+                .datum(data)
+                .attr("class", "fiftyMovingAverage")
+                .attr("d", lineFifty);
+
+            svg.append("path")
+                .datum(data)
+                .attr("class", "twoHundredMovingAverage")
+                .attr("d", lineTwoHundred);
+
+            var focusClose = svg.append("g")
+                .attr("class", "focusClose")
+                .style("display", "none");
+
+            var focusFifty = svg.append("g")
+                .attr("class", "focusFifty")
+                .style("display", "none");
+
+            var focusTwoHundred = svg.append("g")
+                .attr("class", "focusTwoHundred")
+                .style("display", "none");
+
+            var closeTextG = svg.append("g")
+                .attr("class", "focusClose");
+
+            closeTextG.append("rect")
+                .attr("width", 60)
+                .attr("height", 30)
+                .attr("x", 40)
+                .attr("y", 0);
+
+            closeTextG.append("text")
+                .attr("x", 70)
+                .attr("y", 15)
+                .attr("dy", ".35em")
+                .style("text-anchor", "middle");
+
+            var fiftyTextG = svg.append("g")
+                .attr("class", "focusFifty");
+
+            fiftyTextG.append("rect")
+                .attr("width", 60)
+                .attr("height", 30)
+                .attr("x", 120)
+                .attr("y", 0);
+
+            fiftyTextG.append("text")
+                .attr("x", 150)
+                .attr("y", 15)
+                .attr("dy", ".35em")
+                .style("text-anchor", "middle");
+
+            var twoHundredTextG = svg.append("g")
+                .attr("class", "focusTwoHundred");
+
+            twoHundredTextG.append("rect")
+                .attr("width", 60)
+                .attr("height", 30)
+                .attr("x", 200)
+                .attr("y", 0);
+
+            twoHundredTextG.append("text")
+                .attr("x", 230)
+                .attr("y", 15)
+                .attr("dy", ".35em")
+                .style("text-anchor", "middle");
+
+            focusClose.append("circle")
+                .attr("r", 5);
+
+            focusFifty.append("circle")
+                .attr("r", 5);
+
+            focusTwoHundred.append("circle")
+                .attr("r", 5);
+
+            svg.append("rect")
+                .attr("class", "overlay")
+                .attr("width", width)
+                .attr("height", height)
+                .on("mouseover", function () { focusClose.style("display", null); focusFifty.style("display", null); focusTwoHundred.style("display", null); })
+                .on("mouseout", function () {
+                    focusClose.style("display", "none");
+                    focusFifty.style("display", "none");
+                    focusTwoHundred.style("display", "none");
+                    closeTextG.select("text").text(null);
+                    fiftyTextG.select("text").text(null);
+                    twoHundredTextG.select("text").text(null);
+                })
+                .on("mousemove", mousemove);
+
+            function mousemove() {
+                var x0 = x.invert(d3.mouse(this)[0]),
+                    i = bisectDate(data, x0, 1),
+                    d0 = data[i - 1],
+                    d1 = data[i],
+                    d = x0 - d0.date > d1.date - x0 ? d1 : d0;
+                focusClose.attr("transform", "translate(" + x(d.date) + "," + y(d.adjClose) + ")");
+                focusFifty.attr("transform", "translate(" + x(d.date) + "," + y(d.fifty) + ")");
+                focusTwoHundred.attr("transform", "translate(" + x(d.date) + "," + y(d.twoHundred) + ")");
+
+                closeTextG.select("text").text(formatCurrency(d.adjClose));
+                fiftyTextG.select("text").text(formatCurrency(d.fifty));
+                twoHundredTextG.select("text").text(formatCurrency(d.twoHundred));
+            }
+        }
+
+        var $button = $("#getdata");
+
+        $button.on('click', function () {
+            var data = {};
+            data.symbol = $("#stockSymbol").val();
+
+            var $graph = $("#stockGraph");
+
+            if ($graph) {
+                $graph.remove();
+            }
+
+            $.ajax({
+                type: 'POST',
+                data: JSON.stringify(data),
+                contentType: 'application/json',
+                url: 'http://localhost:3000/stock',
+                success: function (data) {
+                    if (data && data.headers && data.data && data.data.length) {
+                        $("#graphPlaceholder").empty();
+                        setTimeout(updateData, 0, data.headers, data.data);
+                    }
+                }
+            })
+            .fail(function (jqXHR, textStatus) {
+                if (textStatus === "timeout") {
+                    $("#graphPlaceholder").text("Your request timed out, please try again.");
+                } else {
+                    $("#graphPlaceholder").text("Could not retreive data, please check your stock symbol and try again.");
+                }
+            });
+        });
+    </script>
+</body>
+</html>
